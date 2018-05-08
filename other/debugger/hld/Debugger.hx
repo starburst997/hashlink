@@ -87,7 +87,7 @@ class Debugger {
 		eval = new Eval(module, api, jit);
 		if( !api.start() )
 			return false;
-		wait(); // wait first break
+		//wait(); // wait first break
 		return true;
 	}
 
@@ -114,6 +114,7 @@ class Debugger {
 	}
 
 	public function pause() {
+        trace('PAUSE ?????');
 		if( !api.breakpoint() )
 			throw "Failed to break process";
 		var r = wait();
@@ -153,6 +154,7 @@ class Debugger {
 	}
 
 	function wait( onStep = false ) : Api.WaitResult {
+        trace('!!! WAIT');
 		var cmd = null;
 		watchBreak = null;
 		while( true ) {
@@ -533,6 +535,7 @@ class Debugger {
 	}
 
 	public function watch( a : Address, forReadWrite = false ) {
+        trace('WATCH?');
 		var size = jit.align.typeSize(a.t);
 		var availableRegs = HW_REGS.copy();
 		for( w in watches )
@@ -572,6 +575,7 @@ class Debugger {
 
 
 	function syncDebugRegs() {
+        trace('Aadasdsadasdsad');
 		var wasPaused = false;
 		if( currentThread == null ) {
 			pause();

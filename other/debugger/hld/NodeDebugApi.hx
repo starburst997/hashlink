@@ -5,6 +5,25 @@ import hld.NodeFFI.makeDecl in FDecl;
 
 class NodeDebugApi implements Api {
 
+    static inline var PTRACE_TRACEME = 0;
+    static inline var PTRACE_PEEKTEXT = 1;
+    static inline var PTRACE_PEEKDATA = 2;
+    static inline var PTRACE_PEEKUSR = 3;
+    static inline var PTRACE_POKETEXT = 4;
+    static inline var PTRACE_POKEDATA = 5;
+    static inline var PTRACE_POKEUSR = 6;
+    static inline var PTRACE_CONT = 7;
+    static inline var PTRACE_KILL = 8;
+    static inline var PTRACE_SINGLESTEP = 9;
+
+    static inline var PTRACE_GETREGS = 12;
+    static inline var PTRACE_SETREGS = 13;
+
+    static inline var PTRACE_ATTACH = 0x10;
+    static inline var PTRACE_DETACH = 11;
+
+    static inline var PTRACE_SYSCALL = 24;
+
 	var pid : Int;
 	var tmp : Buffer;
 	var tmpByte : Buffer;
@@ -12,6 +31,7 @@ class NodeDebugApi implements Api {
 	var isNode64 : Bool;
 
 	var winApi : Dynamic;
+	var unix : Dynamic;
 	var debugEvent : CValue;
 	var context : js.node.Buffer;
 
@@ -29,7 +49,31 @@ class NodeDebugApi implements Api {
 
 		tmp = new Buffer(8);
 		tmpByte = new Buffer(4);
-		winApi = NodeFFI.Library("Kernel32.dll", {
+
+        unix = NodeFFI.Library(null, {
+			ptrace : FDecl(int,[int,int,pointer,pointer]),
+            waitpid : FDecl(int,[int,pointer,int]),
+            fork : FDecl(int,[]),
+
+            /*"waitpid": ["int", ["int", "pointer", "int"]],
+            "fork": ["int", []],
+            "ptrace": ["int", ["int", "int", "pointer", "pointer"]],
+            "kill": ["int", ["int", "int"]],
+            "execl": ["int", ["string", "string"], { varargs: true }],
+            "fcntl": ["int", ["int", "int", "int"]],
+            "dup": ["int", ["int"]],
+            "dup2": ["int", ["int", "int"]],
+            "close": ["int", ["int"]]*/
+		});
+
+        winApi = unix;
+
+        /*var test = unix.ptrace(PTRACE_TRACEME, 0, null, null);
+        trace('Test!!!', test);
+
+        trace('OOOO', unix.ptrace(PTRACE_SYSCALL, pid, null, null));*/
+        
+		/*winApi = NodeFFI.Library("Kernel32.dll", {
 			DebugActiveProcess : FDecl(bool, [int]),
 			DebugActiveProcessStop : FDecl(bool, [int]),
 			DebugBreakProcess : FDecl(bool,[pointer]),
@@ -51,9 +95,14 @@ class NodeDebugApi implements Api {
 			});
 			winApi.GetThreadContext = wow64.Wow64GetThreadContext;
 			winApi.SetThreadContext = wow64.Wow64SetThreadContext;
-		}
+		}*/
 
-		phandle = winApi.OpenProcess(0xF0000 | 0x100000 | 0xFFFF, 0, pid);
+		//phandle = winApi.OpenProcess(0xF0000 | 0x100000 | 0xFFFF, 0, pid);
+        
+        trace('yoyoyooy', pid);
+        
+        phandle = unix.ptrace(PTRACE_ATTACH, pid, null, null);
+        trace('phandle', phandle);
 
 		// DEBUG_EVENT
 		var dev = new CStruct();
@@ -82,11 +131,14 @@ class NodeDebugApi implements Api {
 	}
 
 	public function start() : Bool {
-		return winApi.DebugActiveProcess(pid);
+		//return winApi.DebugActiveProcess(pid);
+        return true;
 	}
 
 	public function stop() {
-		winApi.DebugActiveProcessStop(pid);
+        trace('STOPPPPPPPPPP');
+		//winApi.DebugActiveProcessStop(pid);
+        unix.ptrace(PTRACE_DETACH, pid, null, null);
 	}
 
 	public function breakpoint() {
@@ -125,9 +177,22 @@ class NodeDebugApi implements Api {
 
 	public function wait( timeout : Int ) : { r : WaitResult, tid : Int } {
 		var e = debugEvent;
-		if( !winApi.WaitForDebugEvent(e.ref(), timeout) )
+		
+        var tid = e.threadId;
+        
+        var res = unix.waitpid(pid, null, 0);
+
+        trace('RES', res);
+
+        resume(tid);
+        return { r : Handled, tid : tid };
+        
+        
+        if( !winApi.WaitForDebugEvent(e.ref(), timeout) )
 			return { r : Timeout, tid : 0 };
-		var tid = e.threadId;
+		
+        
+        
 		var result : WaitResult = switch( e.debugEventCode ) {
 		case 1://EXCEPTION_DEBUG_EVENT
 			switch( e.exceptionCode ) {
@@ -164,7 +229,11 @@ class NodeDebugApi implements Api {
 	}
 
 	public function resume( tid : Int ) : Bool {
-		return winApi.ContinueDebugEvent(pid, tid, 0x00010002/*DBG_CONTINUE*/);
+
+        // ???
+        return unix.ptrace(PTRACE_CONT, pid, null, null);
+		
+        //return winApi.ContinueDebugEvent(pid, tid, 0x00010002/*DBG_CONTINUE*/);
 	}
 
 	public function readRegister( tid : Int, register : Register ) : Pointer {
