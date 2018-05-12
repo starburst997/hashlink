@@ -6,7 +6,11 @@
 #	include <SDL.h>
 #	include <SDL_syswm.h>
 #else
-#	include "SDL.h"
+#if defined (HL_IOS) || defined(HL_TVOS)
+#   include "SDL.h"
+#else
+#   include <SDL2/SDL.h>
+#endif
 #endif
 
 #if defined (HL_IOS) || defined(HL_TVOS)
