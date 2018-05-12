@@ -2,8 +2,8 @@
 #include <hl.h>
 
 #if defined(HL_IOS) || defined (HL_TVOS)
-#	include <SDL2/SDL.h>
-#	include <SDL2/SDL_syswm.h>
+#	include "SDL.h"
+#	include "SDL_syswm.h"
 #	include <OpenGLES/ES3/gl.h>
 #	define glBindFragDataLocation(...)
 #	define glGetQueryObjectiv glGetQueryObjectuiv
