@@ -6,13 +6,13 @@
 #	include <SDL.h>
 #	include <SDL_syswm.h>
 #else
-#	include <SDL2/SDL.h>
+#	include "SDL.h"
 #endif
 
 #if defined (HL_IOS) || defined(HL_TVOS)
 #	include <OpenGLES/ES3/gl.h>
 #	include <OpenGLES/ES3/glext.h>
-#	include <SDL2/SDL_syswm.h>
+#	include "SDL_syswm.h"
 #endif
 
 #ifndef SDL_MAJOR_VERSION
