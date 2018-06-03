@@ -25,6 +25,8 @@ class Window {
 	public var vsync(default, set) : Bool;
 	public var width(get, never) : Int;
 	public var height(get, never) : Int;
+	public var drawableWidth(get, never) : Int;
+	public var drawableHeight(get, never) : Int;
 	public var displayMode(default, set) : DisplayMode;
 	public var visible(default, set) : Bool = true;
 
@@ -134,6 +136,18 @@ class Window {
 		return h;
 	}
 
+    function get_drawableWidth() {
+		var w = 0;
+		winGetDrawableSize(win, w, null);
+		return w;
+	}
+
+	function get_drawableHeight() {
+		var h = 0;
+		winGetDrawableSize(win, null, h);
+		return h;
+	}
+
 	function set_vsync(v) {
 		setVsync(v);
 		return vsync = v;
@@ -201,6 +215,9 @@ class Window {
 	}
 
 	static function winGetSize( win : WinPtr, width : hl.Ref<Int>, height : hl.Ref<Int> ) {
+	}
+
+    static function winGetDrawableSize( win : WinPtr, width : hl.Ref<Int>, height : hl.Ref<Int> ) {
 	}
 
 	static function winRenderTo( win : WinPtr, gl : GLContext ) {
