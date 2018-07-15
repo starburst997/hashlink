@@ -13,8 +13,7 @@ package sdl;
 	public var keyRepeat : Bool;
 	public var controller : Int;
 	public var value : Int;
-	public var fingerIdHigh : Int;
-	public var fingerIdLow : Int;
+	public var fingerId : Int;
 	public function new() {
 	}
 }
