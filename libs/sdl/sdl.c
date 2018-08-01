@@ -376,9 +376,9 @@ HL_PRIM SDL_Window *HL_NAME(win_create)(int width, int height) {
 #ifdef	HL_MOBILE
 	SDL_DisplayMode displayMode;
 	SDL_GetDesktopDisplayMode(0, &displayMode);
-	w = SDL_CreateWindow("", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, width, height, SDL_WINDOW_OPENGL | SDL_WINDOW_BORDERLESS);
+	w = SDL_CreateWindow("", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, width, height, SDL_WINDOW_OPENGL | SDL_WINDOW_BORDERLESS | SDL_WINDOW_ALLOW_HIGHDPI);
 #else
-	w = SDL_CreateWindow("", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, width, height, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
+	w = SDL_CreateWindow("", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, width, height, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
 #endif
 #	ifdef HL_WIN
 	// force window to show even if the debugger force process windows to be hidden
@@ -457,6 +457,10 @@ HL_PRIM void HL_NAME(win_get_size)(SDL_Window *win, int *width, int *height) {
 	SDL_GetWindowSize(win, width, height);
 }
 
+HL_PRIM void HL_NAME(win_get_drawable_size)(SDL_Window *win, int *width, int *height) {
+	SDL_GL_GetDrawableSize(win, width, height);
+}
+
 HL_PRIM void HL_NAME(win_resize)(SDL_Window *win, int mode) {
 	switch( mode ) {
 	case 0:
@@ -510,6 +514,7 @@ DEFINE_PRIM(_VOID, win_resize, TWIN _I32);
 DEFINE_PRIM(_VOID, win_set_title, TWIN _BYTES);
 DEFINE_PRIM(_VOID, win_set_size, TWIN _I32 _I32);
 DEFINE_PRIM(_VOID, win_get_size, TWIN _REF(_I32) _REF(_I32));
+DEFINE_PRIM(_VOID, win_get_drawable_size, TWIN _REF(_I32) _REF(_I32));
 DEFINE_PRIM(_VOID, win_swap_window, TWIN);
 DEFINE_PRIM(_VOID, win_render_to, TWIN TGL);
 DEFINE_PRIM(_VOID, win_destroy, TWIN TGL);

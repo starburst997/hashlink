@@ -861,7 +861,7 @@ HL_PRIM void HL_NAME(al_delete_effects)(int n, vbyte *effects) {
 }
 
 HL_PRIM bool HL_NAME(al_is_effect)(unsigned effect) {
-	return alIsEffect(effect) == AL_TRUE;
+    return alIsEffect(effect) == AL_TRUE;
 }
 
 HL_PRIM void HL_NAME(al_effecti)(unsigned effect, int param, int iValue) {
