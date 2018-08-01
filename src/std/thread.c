@@ -24,10 +24,12 @@
 #if !defined(HL_THREADS)
 
 struct _hl_mutex {
+	void (*free)( hl_mutex * );
 	void *_unused;
 };
 
 struct _hl_tls {
+	void (*free)( hl_tls * );
 	void *value;
 };
 
@@ -57,7 +59,7 @@ struct _hl_mutex {
 };
 
 struct _hl_tls {
-	void (*free)( hl_mutex * );
+	void (*free)( hl_tls * );
 	pthread_key_t key;
 };
 
@@ -229,7 +231,7 @@ struct _hl_deque {
 #endif
 };
 
-#if !defined(HL_WIN)
+#if !defined(HL_THREADS)
 #	define LOCK(l)
 #	define UNLOCK(l)
 #	define SIGNAL(l)
@@ -376,6 +378,7 @@ typedef struct {
 	void *param;
 } thread_start;
 
+#ifdef HL_THREADS
 static void gc_thread_entry( thread_start *_s ) {
 	thread_start s = *_s;
 	hl_register_thread(&s);
@@ -384,6 +387,7 @@ static void gc_thread_entry( thread_start *_s ) {
 	s.callb(s.param);
 	hl_unregister_thread();
 }
+#endif
 
 HL_PRIM hl_thread *hl_thread_start( void *callback, void *param, bool withGC ) {
 #ifdef HL_THREADS
@@ -431,6 +435,7 @@ static void hl_run_thread( vclosure *c ) {
 	uprintf(USTR("Uncaught exception: %s\n"), hl_to_string(exc));
 	for(i=0;i<a->size;i++)
 		uprintf(USTR("Called from %s\n"), hl_aptr(a,uchar*)[i]);
+	fflush(stdout);
 }
 
 HL_PRIM hl_thread *hl_thread_create( vclosure *c ) {

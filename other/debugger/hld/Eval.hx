@@ -19,6 +19,7 @@ class Eval {
 
 	public var maxStringRec : Int = 3;
 	public var maxArrLength : Int = 10;
+	public var maxBytesLength : Int = 128;
 
 	static var HASH_PREFIX = "$_h$";
 
@@ -42,24 +43,75 @@ class Eval {
 			}
 	}
 
-	public function eval( expr : String, funIndex : Int, codePos : Int, ebp : Pointer ) {
-		if( expr == null || expr == "" )
-			return null;
+	public function setContext( funIndex : Int, codePos : Int, ebp : Pointer ) {
 		this.funIndex = funIndex;
 		this.codePos = codePos;
 		this.ebp = ebp;
+	}
 
+	public function eval( expr : String ) {
+		if( expr == null || expr == "" )
+			return null;
 		var expr = try parser.parseString(expr) catch( e : hscript.Expr.Error ) throw hscript.Printer.errorToString(e);
 		return evalExpr(expr);
 	}
 
-	public function ref( exprSrc : String, funIndex : Int, codePos : Int, ebp : Pointer ) {
+	public function setValue( expr : String, value : String ) {
+		var ref = ref(expr);
+		if( ref.ptr.isNull() )
+			throw "Can't set null ptr";
+		var value = eval(value);
+		if( value == null )
+			return null;
+		value = castTo(value, ref.t);
+		switch( [ref.t, value.v] ) {
+		case [HI32, VInt(i)]:
+			writeI32(ref.ptr, i);
+		case [HBool, VBool(flag)]:
+			var b = new Buffer(1);
+			b.setUI8(0, flag ? 1 : 0);
+			writeMem(ref.ptr, b, 1);
+		default:
+			if( ref.t.isPtr() ) {
+				var ptr = getPtr(value);
+				if( ptr != null || value.v == VNull ) {
+					writePointer(ref.ptr, ptr);
+					return value;
+				}
+			}
+			throw "Don't know how to set "+ref.t.toString();
+		}
+		return value;
+	}
+
+	function getPtr( v : Value ) {
+		return switch (v.v) {
+		case VNull: Pointer.make(0,0);
+		case VPointer(p), VString(_, p), VClosure(_,_,p), VFunction(_,p), VArray(_, _, _, p), VMap(_, _, _, _, p), VEnum(_, _, p), VBytes(_,_,p): p;
+		default: null;
+		}
+	}
+
+	function castTo( v : Value, t : HLType ) {
+		if( v == null )
+			return null;
+		if( safeCastTo(v.t, t) )
+			return v;
+		if( v.v == VNull && t.isPtr() )
+			return { v : VNull, t : t };
+		throw "Don't know how to cast "+v.t.toString()+" to "+t.toString();
+	}
+
+	function safeCastTo( t : HLType, to : HLType ) {
+		if( t == to )
+			return true;
+		// TODO
+		return false;
+	}
+
+	public function ref( exprSrc : String ) {
 		if( exprSrc == null || exprSrc == "" )
 			return null;
-		this.funIndex = funIndex;
-		this.codePos = codePos;
-		this.ebp = ebp;
-
 		var expr = try parser.parseString(exprSrc) catch( e : hscript.Expr.Error ) throw hscript.Printer.errorToString(e);
 		switch( expr ) {
 		case EField(obj, f):
@@ -88,8 +140,7 @@ class Eval {
 			}
 		case EIdent(i):
 			var v = getVar(i);
-			if( v == null )
-				throw "Unknown identifier " + i;
+			if( v == null ) return null;
 			return v;
 		case EArray(v, i):
 			var v = evalExpr(v);
@@ -136,8 +187,10 @@ class Eval {
 					break;
 				}
 			}
-			for( f in path )
+			for( f in path ) {
+				if( v == null ) break;
 				v = readField(v, f);
+			}
 			return v;
 		case EIf(econd, e1, e2), ETernary(econd, e1, e2):
 			if( toBool(evalExpr(econd)) )
@@ -203,8 +256,14 @@ class Eval {
 		}
 	}
 
-	function getVar( name : String ) {
-		return fetch(getVarAddress(name));
+	function getVar( name : String ) : Value {
+		return switch( name ) {
+		case "true": { v : VBool(true), t : HBool };
+		case "false": { v : VBool(false), t : HBool };
+		case "null": { v : VNull, t : HDyn };
+		default:
+			fetch(getVarAddress(name));
+		}
 	}
 
 	function getVarAddress( name : String ) {
@@ -245,6 +304,22 @@ class Eval {
 			}
 		}
 
+		// static
+		var ctx = module.getMethodContext(funIndex);
+		if( ctx != null ) {
+			var t = ctx.obj;
+			if( t.globalValue != null )
+				t = switch( module.code.globals[t.globalValue] ) {
+				case HObj(p): p;
+				default: null;
+				}
+			if( t != null && t.name.charCodeAt(0) == '$'.code ) {
+				for( f in t.fields )
+					if( f.name == name )
+						return readFieldAddress(getVar(t.name.substr(1)), name);
+			}
+		}
+
 		// global
 		return getGlobalAddress([name]);
 	}
@@ -255,10 +330,7 @@ class Eval {
 			path.shift();
 			return v;
 		}
-		var g = fetch(getGlobalAddress(path));
-		if( g == null )
-			throw "Unknown identifier " + path[0];
-		return g;
+		return fetch(getGlobalAddress(path));
 	}
 
 	function getGlobalAddress( path : Array<String> ) {
@@ -266,8 +338,8 @@ class Eval {
 		if( g == null )
 			return null;
 		var addr = { ptr : jit.globals.offset(g.offset), t : g.type };
-		for( f in path )
-			addr = readFieldAddress(fetch(addr), f);
+		while( path.length > 0 )
+			addr = readFieldAddress(fetch(addr), path.shift());
 		return addr;
 	}
 
@@ -278,6 +350,15 @@ class Eval {
 		s = s.split("\t").join("\\t");
 		s = s.split('"').join('\\"');
 		return s;
+	}
+
+	public function typeStr( t : HLType ) {
+		switch( t ) {
+		case HDynObj:
+			return "{...}";
+		default:
+			return t.toString();
+		}
 	}
 
 	public function valueStr( v : Value ) {
@@ -293,12 +374,12 @@ class Eval {
 		case VPointer(p):
 			switch( v.t ) {
 			case HVirtual(_): p.toString();
-			case HBytes, HAbstract(_): v.t.toString()+"("+p.toString()+")";
-			default: v.t.toString().split(".").pop();
+			case HBytes, HAbstract(_): typeStr(v.t)+"("+p.toString()+")";
+			default: typeStr(v.t).split(".").pop();
 			}
 		case VString(s,_): "\"" + escape(s) + "\"";
-		case VClosure(f, d): funStr(f) + "[" + valueStr(d) + "]";
-		case VFunction(f): funStr(f);
+		case VClosure(f, d, _): funStr(f) + "[" + valueStr(d) + "]";
+		case VFunction(f,_): funStr(f);
 		case VArray(_, length, read, _):
 			if( length <= maxArrLength )
 				"["+[for(i in 0...length) valueStr(read(i))].join(", ")+"]";
@@ -307,6 +388,15 @@ class Eval {
 				arr.push("...");
 				"["+arr.join(",")+"]:"+length;
 			}
+		case VBytes(length, read, _):
+			var blen = length < maxBytesLength ? length : maxBytesLength;
+			var bytes = haxe.io.Bytes.alloc(blen);
+			for( i in 0...blen )
+				bytes.set(i, read(i));
+			var str = length+":0x" + bytes.toHex().toUpperCase();
+			if( length > maxBytesLength )
+				str += "...";
+			str;
 		case VMap(_, nkeys, readKey, readValue, _):
 			var max = nkeys < maxArrLength ? nkeys : maxArrLength;
 			var content = [for( i in 0...max ) { var k = readKey(i); valueStr(k) + "=>" + valueStr(readValue(i)); }];
@@ -316,8 +406,8 @@ class Eval {
 			} else
 				content.toString();
 		case VType(t):
-			t.toString();
-		case VEnum(c, values):
+			typeStr(t);
+		case VEnum(c, values, _):
 			if( values.length == 0 )
 				c
 			else
@@ -421,6 +511,10 @@ class Eval {
 				v = makeMap(readPointer(p.offset(align.ptr)), HI32);
 			case "haxe.ds.ObjectMap":
 				v = makeMap(readPointer(p.offset(align.ptr)), HDyn);
+			case "haxe.io.Bytes":
+				var length = readI32(p.offset(align.ptr));
+				var bytes = readPointer(p.offset(align.ptr * 2));
+				v = VBytes(length, function(i) return readMem(bytes.offset(i),1).getUI8(0), p);
 			default:
 			}
 		case HVirtual(_):
@@ -443,9 +537,9 @@ class Eval {
 			var fval = fidx == null ? FUnknown(funPtr) : FIndex(fidx);
 			if( hasValue == 1 ) {
 				var value = readVal(p.offset(align.ptr * 3), HDyn);
-				v = VClosure(fval, value);
+				v = VClosure(fval, value, p);
 			} else
-				v = VFunction(fval);
+				v = VFunction(fval, p);
 		case HType:
 			v = VType(readType(p,true));
 		case HBytes:
@@ -465,7 +559,7 @@ class Eval {
 		case HEnum(e):
 			var index = readI32(p.offset(align.ptr));
 			var c = module.getEnumProto(e)[index];
-			v = VEnum(c.name,[for( a in c.params ) readVal(p.offset(a.offset),a.t)]);
+			v = VEnum(c.name,[for( a in c.params ) readVal(p.offset(a.offset),a.t)], p);
 		default:
 		}
 		return { v : v, t : t };
@@ -549,7 +643,7 @@ class Eval {
 	public function getFields( v : Value ) : Array<String> {
 		var ptr = switch( v.v ) {
 		case VPointer(p): p;
-		case VEnum(_,values):
+		case VEnum(_,values,_):
 			// only list the pointer fields (others are displayed in enum anyway)
 			return [for( i in 0...values.length ) if( values[i].t.isPtr() ) "$"+i];
 		default:
@@ -586,7 +680,7 @@ class Eval {
 
 	public function readField( v : Value, name : String ) {
 		switch( v.v ) {
-		case VEnum(_,values) if( name.charCodeAt(0) == "$".code ):
+		case VEnum(_,values,_) if( name.charCodeAt(0) == "$".code ):
 			return values[Std.parseInt(name.substr(1))];
 		default:
 		}
@@ -677,6 +771,15 @@ class Eval {
 		return Pointer.make(readI32(p), 0);
 	}
 
+	public function writePointer( p : Pointer, v : Pointer ) {
+		if( align.is64 ) {
+			var buf = new Buffer(8);
+			buf.setPointer(0, v, align);
+			writeMem(p, buf, 8);
+		} else
+			writeI32(p, v.toInt());
+	}
+
 	function readMem( p : Pointer, size : Int ) {
 		var b = new Buffer(size);
 		if( !api.read(p, b, size) )
@@ -705,6 +808,17 @@ class Eval {
 
 	public function readI32( p : Pointer ) {
 		return readMem(p, 4).getI32(0);
+	}
+
+	public function writeI32( p : Pointer, v : Int ) {
+		var buf = new Buffer(4);
+		buf.setI32(0,v);
+		writeMem(p, buf, 4);
+	}
+
+	function writeMem( p : Pointer, b : Buffer, size : Int ) {
+		if( !api.write(p, b, size) )
+			throw "Failed to write @" + p.toString() + ":" + size;
 	}
 
 	function readType( p : Pointer, direct = false ) {

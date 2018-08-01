@@ -242,6 +242,9 @@ class GL {
 	public static function framebufferTexture2D( target : Int, attach : Int, texTarget : Int, t : Texture, level : Int ) {
 	}
 
+	public static function framebufferTextureLayer( target : Int, attach : Int, t : Texture, level : Int, layer : Int ) {
+	}
+
 	public static function framebufferTexture( target : Int, attach : Int, t : Texture, level : Int ) {
 	}
 
@@ -322,6 +325,9 @@ class GL {
 	public static function uniform4fv( u : Uniform, buffer : hl.Bytes, bufPos : Int, count : Int ) {
 	}
 
+	public static function uniformMatrix4fv( u : Uniform, transpose : Bool, buffer : hl.Bytes, bufPos : Int, count : Int ) {
+	}
+
 	// compute
 
 	public static function dispatchCompute( num_groups_x : Int, num_groups_y : Int, num_groups_z : Int ) {
@@ -379,6 +385,15 @@ class GL {
 	}
 
 	public static function deleteVertexArray( a : VertexArray ) : Void {
+	}
+
+	// uniform buffer
+
+	public static function getUniformBlockIndex( p : Program, name : String ) : Int {
+		return 0;
+	}
+
+	public static function uniformBlockBinding( p : Program, blockIndex : Int, blockBinding : Int ) : Void {
 	}
 
 	// ----- CONSTANTS -----
@@ -698,6 +713,7 @@ class GL {
 	public static inline var TEXTURE_2D_MULTISAMPLE         = 0x9100;
 	public static inline var TEXTURE_3D                     = 0x806F;
 	public static inline var TEXTURE                        = 0x1702;
+	public static inline var TEXTURE_2D_ARRAY				= 0x8C1A;
 
 	public static inline var TEXTURE_CUBE_MAP_SEAMLESS      = 0x884F;
 	public static inline var TEXTURE_CUBE_MAP               = 0x8513;

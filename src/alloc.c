@@ -137,6 +137,7 @@ static const int GC_SIZES[GC_PARTITIONS] = {4,8,12,16,20,	8,64,1<<14,1<<22};
 #define GC_PROFILE		1
 #define GC_DUMP_MEM		2
 #define GC_NO_THREADS	4
+#define GC_FORCE_MAJOR	8
 
 static int gc_flags = 0;
 static gc_pheader *gc_pages[GC_ALL_PAGES] = {NULL};
@@ -413,7 +414,7 @@ retry:
 		// big block : report stack trace - we should manage to handle it
 		if( size >= (8 << 20) ) {
 			gc_global_lock(false);
-			hl_error_msg(USTR("Failed to alloc %d KB"),size>>10);
+			hl_error("Failed to alloc %d KB",size>>10);
 		}
 		if( gc_flags & GC_DUMP_MEM ) hl_gc_dump_memory("hlmemory.dump");
 		out_of_memory("pages");
@@ -1013,7 +1014,7 @@ static bool gc_is_active = true;
 static void gc_check_mark() {
 	int64 m = gc_stats.total_allocated - gc_stats.last_mark;
 	int64 b = gc_stats.allocation_count - gc_stats.last_mark_allocs;
-	if( (m > gc_stats.pages_total_memory * gc_mark_threshold || b > gc_stats.pages_blocks * gc_mark_threshold) && gc_is_active )
+	if( (m > gc_stats.pages_total_memory * gc_mark_threshold || b > gc_stats.pages_blocks * gc_mark_threshold || (gc_flags & GC_FORCE_MAJOR)) && gc_is_active )
 		gc_major();
 }
 
@@ -1178,6 +1179,19 @@ HL_PRIM void hl_free_executable_memory( void *c, int size ) {
 void *sys_alloc_align( int size, int align );
 void sys_free_align( void *ptr, int size );
 #endif
+
+#if defined(__ANDROID__) && !defined(HAVE_POSIX_MEMALIGN)
+int posix_memalign(void** memptr, size_t alignment, size_t size) {
+    if ((alignment & (alignment - 1)) != 0 || alignment == 0 || alignment % sizeof(void*) != 0) {
+        return 22; // Invalid argument (EINVAL)
+    }
+    *memptr = memalign(alignment, size);
+    if (*memptr == NULL) {
+        return errno;
+    }
+    return 0;
+}
+#endif /* __ANDROID_API__ < 17 */
 
 static void *gc_alloc_page_memory( int size ) {
 #if defined(HL_WIN)
@@ -1368,9 +1382,15 @@ HL_API void hl_gc_dump_memory( const char *filename ) {
 	gc_global_lock(false);
 }
 
+#ifdef HL_VCC
+#	pragma optimize( "", off )
+#endif
 HL_API vdynamic *hl_debug_call( int mode, vdynamic *v ) {
 	return NULL;
 }
+#ifdef HL_VCC
+#	pragma optimize( "", on )
+#endif
 
 DEFINE_PRIM(_VOID, gc_major, _NO_ARG);
 DEFINE_PRIM(_VOID, gc_enable, _BOOL);

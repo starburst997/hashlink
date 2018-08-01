@@ -301,7 +301,7 @@ class Texture2dDesc {
 	var DecrSat = 5;
 	var Invert = 6;
 	var Incr = 7;
-	var Desc = 8;
+	var Decr = 8;
 }
 
 @:keep
@@ -464,7 +464,7 @@ class ShaderResourceViewDesc {
 class Driver {
 
 	public static var fullScreen(get, set) : Bool;
-	
+
 	/**
 		Setup an error handler instead of getting String exceptions:
 		The first parameter is the DirectX error code
@@ -477,6 +477,9 @@ class Driver {
 
 	public static function create( win : Window, format : Format, flags : DriverInitFlags = None, restrictLevel = 0 ) {
 		return dxCreate(@:privateAccess win.win, format, flags, restrictLevel);
+	}
+
+	public static function disposeDriver( driver : DriverInstance ) {
 	}
 
 	public static function resize( width : Int, height : Int, format : Format ) : Bool {
@@ -595,7 +598,7 @@ class Driver {
 		return null;
 	}
 
-	public static function omSetDepthStencilState( state : DepthStencilState ) : Void {
+	public static function omSetDepthStencilState( state : DepthStencilState, ref : Int ) : Void {
 	}
 
 	public static function clearDepthStencilView( view : DepthStencilView, depth : Null<Float>, stencil : Null<Int> ) {

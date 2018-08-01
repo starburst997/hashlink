@@ -87,6 +87,11 @@ class CodeGraph {
 			}
 			vars.push(vname);
 		}
+
+		// single captured pointer => passed directly
+		if( args.length >= 1 && args[0].hasIndex && args[0].vars.length == 1 && !f.regs[0].match(HEnum({name:""})) )
+			args[0].hasIndex = false;
+
 		if( args.length == nargs - 1 )
 			args.unshift({ hasIndex : false, vars : ["this"] });
 		if( args.length != nargs )
@@ -152,7 +157,7 @@ class CodeGraph {
 	public function getLocals( pos : Int ) : Array<String> {
 		var arr = [];
 		for( a in fun.assigns ) {
-			if( a.position >= pos ) break;
+			if( a.position > pos ) break;
 			if( a.position < 0 ) continue; // arg
 			if( arr.indexOf(a.varName) >= 0 ) continue;
 			if( getLocal(module.strings[a.varName],pos) == null ) continue; // not written
@@ -192,13 +197,19 @@ class CodeGraph {
 			return null;
 		b.visitTag = currentTag;
 		var v = b.writtenVars.get(name);
-		if( v != null )
+		if( v != null ) {
+			var last = -1;
 			for( p in v )
-				if( p < pos ) {
-					var rid = -1;
-					opFx(fun.ops[p], function(_) {}, function(w) rid = w);
-					return { rid : rid, t : fun.regs[rid] };
-				}
+				if( p < pos )
+					last = p;
+				else if( last < 0 )
+					break;
+			if( last >= 0 ) {
+				var rid = -1;
+				opFx(fun.ops[last], function(_) {}, function(w) rid = w);
+				return { rid : rid, t : fun.regs[rid] };
+			}
+		}
 		for( b2 in b.prev )
 			if( b2.start < b.start ) {
 				var l = lookupLocal(b2, name, pos);

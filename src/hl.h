@@ -27,7 +27,7 @@
 	https://github.com/HaxeFoundation/hashlink/wiki/
 **/
 
-#define HL_VERSION	0x160
+#define HL_VERSION	0x170
 
 #if defined(_WIN32)
 #	define HL_WIN
@@ -217,7 +217,7 @@ typedef wchar_t	uchar;
 #	define uprintf		wprintf
 #	define ustrlen		wcslen
 #	define ustrdup		_wcsdup
-#	define uvsprintf	wvsprintf
+HL_API int uvszprintf( uchar *out, int out_size, const uchar *fmt, va_list arglist );
 #	define utod(s,end)	wcstod(s,end)
 #	define utoi(s,end)	wcstol(s,end,10)
 #	define ucmp(a,b)	wcscmp(a,b)
@@ -250,7 +250,7 @@ HL_API int utoi( const uchar *str, uchar **end );
 HL_API int ucmp( const uchar *a, const uchar *b );
 HL_API int utostr( char *out, int out_size, const uchar *str );
 HL_API int usprintf( uchar *out, int out_size, const uchar *fmt, ... );
-HL_API int uvsprintf( uchar *out, const uchar *fmt, va_list arglist );
+HL_API int uvszprintf( uchar *out, int out_size, const uchar *fmt, va_list arglist );
 HL_API void uprintf( const uchar *fmt, const uchar *str );
 C_FUNCTION_END
 #endif
@@ -566,8 +566,9 @@ HL_API int hl_hash_utf8( const char *str ); // no cache
 HL_API int hl_hash_gen( const uchar *name, bool cache_name );
 HL_API const uchar *hl_field_name( int hash );
 
-#define hl_error(msg)	hl_error_msg(USTR(msg))
-HL_API void hl_error_msg( const uchar *msg, ... );
+#define hl_error(msg, ...) hl_throw(hl_alloc_strbytes(USTR(msg), ## __VA_ARGS__))
+
+HL_API vdynamic *hl_alloc_strbytes( const uchar *msg, ... );
 HL_API void hl_assert( void );
 HL_API void hl_throw( vdynamic *v );
 HL_API void hl_rethrow( vdynamic *v );
@@ -770,6 +771,16 @@ typedef struct {
 #	define DEFINE_PRIM_WITH_NAME	_DEFINE_PRIM_WITH_NAME
 #endif
 
+#if defined(HL_GCC) && !defined(HL_CONSOLE)
+#	ifdef HL_CLANG
+#		define HL_NO_OPT	__attribute__ ((optnone))
+#	else
+#		define HL_NO_OPT	__attribute__((optimize("-O0")))
+#	endif
+#else
+#	define HL_NO_OPT
+#endif
+
 // -------------- EXTRA ------------------------------------
 
 #define hl_fatal(msg)			hl_fatal_error(msg,__FILE__,__LINE__)
@@ -796,6 +807,7 @@ struct _hl_trap_ctx {
 #define HL_EXC_CATCH_ALL	2
 #define HL_EXC_IS_THROW		4
 #define HL_TRACK_DISABLE	8
+#define HL_THREAD_INVISIBLE	16
 
 typedef struct {
 	int thread_id;

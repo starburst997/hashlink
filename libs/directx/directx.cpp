@@ -48,9 +48,9 @@ static void ReportDxError( HRESULT err, int line ) {
 	}
 	if( err == DXGI_ERROR_DEVICE_REMOVED && driver ){
 		err = driver->device->GetDeviceRemovedReason();
-		hl_error_msg(USTR("DXGI_ERROR_DEVICE_REMOVED reason 0x%X line %d"),(DWORD)err,line);
+		hl_error("DXGI_ERROR_DEVICE_REMOVED reason 0x%X line %d",(DWORD)err,line);
 	}else{
-		hl_error_msg(USTR("DXERROR %X line %d"),(DWORD)err,line);
+		hl_error("DXERROR %X line %d",(DWORD)err,line);
 	}
 }
 
@@ -113,6 +113,14 @@ HL_PRIM dx_driver *HL_NAME(create)( HWND window, int format, int flags, int rest
 
 	driver = d;
 	return d;
+}
+
+HL_PRIM void HL_NAME(dispose_driver)( dx_driver *d ) {
+	d->swapchain->Release();
+	d->device->Release();
+	d->context->Release();
+	if( driver == d )
+		driver = NULL;
 }
 
 HL_PRIM dx_driver *HL_NAME(get_driver)(){
@@ -429,6 +437,7 @@ HL_PRIM void HL_NAME(debug_print)( vbyte *b ) {
 
 DEFINE_PRIM(_VOID, set_error_handler, _FUN(_VOID, _I32 _I32 _I32));
 DEFINE_PRIM(_DRIVER, create, _ABSTRACT(dx_window) _I32 _I32 _I32);
+DEFINE_PRIM(_VOID, dispose_driver, _DRIVER);
 DEFINE_PRIM(_BOOL, resize, _I32 _I32 _I32);
 DEFINE_PRIM(_RESOURCE, get_back_buffer, _NO_ARG);
 DEFINE_PRIM(_POINTER, create_render_target_view, _RESOURCE _DYN);
@@ -463,7 +472,7 @@ DEFINE_PRIM(_POINTER, create_input_layout, _ARR _BYTES _I32);
 DEFINE_PRIM(_RESOURCE, create_texture_2d, _DYN _BYTES);
 DEFINE_PRIM(_POINTER, create_depth_stencil_view, _RESOURCE _I32);
 DEFINE_PRIM(_POINTER, create_depth_stencil_state, _DYN);
-DEFINE_PRIM(_VOID, om_set_depth_stencil_state, _POINTER);
+DEFINE_PRIM(_VOID, om_set_depth_stencil_state, _POINTER _I32);
 DEFINE_PRIM(_VOID, clear_depth_stencil_view, _POINTER _NULL(_F64) _NULL(_I32));
 DEFINE_PRIM(_POINTER, create_blend_state, _BOOL _BOOL _ARR _I32);
 DEFINE_PRIM(_VOID, om_set_blend_state, _POINTER _BYTES _I32);

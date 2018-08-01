@@ -20,12 +20,30 @@ class Debugger {
 
 	static inline var INT3 = 0xCC;
 	static var HW_REGS : Array<Api.Register> = [Dr0, Dr1, Dr2, Dr3];
+	public static var IGNORED_ROOTS = [
+		"hl",
+		"sys",
+		"haxe",
+		"Date",
+		"EReg",
+		"Math",
+		"Reflect",
+		"Std",
+		"String",
+		"StringBuf",
+		"Sys",
+		"Type",
+		"Xml",
+		"ArrayObj" // special
+	];
 
 	var sock : sys.net.Socket;
 
 	var api : Api;
 	var module : Module;
 	var jit : JitInfo;
+	var processExit : Bool;
+	var ignoredRoots : Map<String,Bool>;
 
 	var breakPoints : Array<{ fid : Int, pos : Int, codePos : Int, oldByte : Int }>;
 	var nextStep : Int = -1;
@@ -38,6 +56,7 @@ class Debugger {
 
 	public var eval : Eval;
 	public var currentStackFrame : Int;
+	public var breakOnThrow(default, set) : Bool;
 	public var stackFrameCount(get, never) : Int;
 	public var mainThread(default, null) : Int = 0;
 	public var stoppedThread(default,set) : Null<Int>;
@@ -65,14 +84,24 @@ class Debugger {
 		module.load(content);
 	}
 
-	public function connect( host : String, port : Int ) {
+	public function connect( host : String, port : Int, retries = 10 ) {
 		sock = new sys.net.Socket();
-		try {
-			sock.connect(new sys.net.Host(host), port);
-		} catch( e : Dynamic ) {
+
+		var connected = false;
+		for( i in 0...retries ) {
+			try {
+				sock.connect(new sys.net.Host(host), port);
+				connected = true;
+				break;
+			} catch( e : Dynamic ) {
+				Sys.sleep(0.1);
+			}
+		}
+		if( !connected ) {
 			sock.close();
 			return false;
 		}
+
 		jit = new JitInfo();
 		if( !jit.read(sock.input, module) ) {
 			sock.close();
@@ -131,8 +160,9 @@ class Debugger {
 		return r;
 	}
 
-	function singleStep(tid) {
-		var r = getReg(tid, EFlags).toInt() | 256;
+	function singleStep(tid,set=true) {
+		var r = getReg(tid, EFlags).toInt();
+		if( set ) r |= 256 else r &= ~256;
 		setReg(tid, EFlags, hld.Pointer.make(r,0));
 	}
 
@@ -152,11 +182,39 @@ class Debugger {
 		return args ? g.getArgs() : g.getLocals(s.fpos);
 	}
 
+	public function getCurrentClass() {
+		var s = currentStack[currentStackFrame];
+		var ctx = module.getMethodContext(s.fidx);
+		if( ctx == null )
+			return null;
+		var name = ctx.obj.name;
+		return name.split("$").join("");
+	}
+
+	public function getClassStatics( cl : String ) {
+		var v = getValue(cl);
+		if( v == null )
+			throw "No such class "+cl;
+		var fields = eval.getFields(v);
+		fields.remove("__name__");
+		fields.remove("__type__");
+		fields.remove("__meta__");
+		fields.remove("__implementedBy__");
+		fields.remove("__constructor__");
+		return fields;
+	}
+
 	function wait( onStep = false ) : Api.WaitResult {
 		var cmd = null;
 		watchBreak = null;
 		while( true ) {
 			cmd = api.wait(customTimeout == null ? 1000 : Math.ceil(customTimeout * 1000));
+
+			if( cmd.r == Breakpoint && nextStep >= 0 ) {
+				// On Linux, singlestep is not reset
+				cmd.r = SingleStep;
+				singleStep(cmd.tid,false);
+			}
 
 			var tid = cmd.tid;
 			switch( cmd.r ) {
@@ -224,7 +282,10 @@ class Debugger {
 				if( onStep )
 					return SingleStep;
 				resume();
-			case Error, Exit, Watchbreak:
+			case Exit:
+				processExit = true;
+				break;
+			case Error, Watchbreak:
 				break;
 			}
 		}
@@ -259,11 +320,12 @@ class Debugger {
 		for( i in 0...count ) {
 			var tinf = eval.readPointer(tinfos.offset(jit.align.ptr * i));
 			var tid = eval.readI32(tinf);
+			var flags = eval.readI32(tinf.offset(flagsPos));
+			if( flags & 16 != 0 ) continue; // invisible
 			if( tid == 0 )
 				tid = mainThread;
 			else if( mainThread <= 0 )
 				mainThread = tid;
-			var flags = eval.readI32(tinf.offset(flagsPos));
 			var t = {
 				id : tid,
 				stackTop : eval.readPointer(tinf.offset(8)),
@@ -385,6 +447,18 @@ class Debugger {
 		}
 	}
 
+	function skipFunction( fidx : Int ) {
+		var ctx = module.getMethodContext(fidx);
+		var name = ctx == null ? new haxe.io.Path(module.resolveSymbol(fidx, 0).file).file : ctx.obj.name.split(".")[0];
+		if( name.charCodeAt(0) == "$".code ) name = name.substr(1);
+		if( ignoredRoots == null ) {
+			ignoredRoots = new Map();
+			for( r in IGNORED_ROOTS )
+				ignoredRoots.set(r,true);
+		}
+		return ignoredRoots.exists(name);
+	}
+
 	public function step( mode : StepMode ) : Api.WaitResult {
 		var tid = currentThread;
 		var s = currentStack[0];
@@ -406,7 +480,12 @@ class Debugger {
 					break;
 			case Into:
 				// different method or different line
-				if( st.fidx != s.fidx || module.resolveSymbol(st.fidx, st.fpos).line != line )
+				if( st.fidx != s.fidx ) {
+					if( deltaEbp < 0 && skipFunction(st.fidx) )
+						continue;
+					break;
+				}
+				if( module.resolveSymbol(st.fidx, st.fpos).line != line )
 					break;
 			case Out:
 				// only on ret
@@ -519,13 +598,22 @@ class Debugger {
 	public function getValue( expr : String ) : Value {
 		var cur = currentStack[currentStackFrame];
 		if( cur == null ) return null;
-		return eval.eval(expr, cur.fidx, cur.fpos, cur.ebp);
+		eval.setContext(cur.fidx, cur.fpos, cur.ebp);
+		return eval.eval(expr);
+	}
+
+	public function setValue( expr : String, value : String ) : Value {
+		var cur = currentStack[currentStackFrame];
+		if( cur == null ) return null;
+		eval.setContext(cur.fidx, cur.fpos, cur.ebp);
+		return eval.setValue(expr, value);
 	}
 
 	public function getRef( expr : String ) : Address {
 		var cur = currentStack[currentStackFrame];
 		if( cur == null ) return null;
-		return eval.ref(expr, cur.fidx, cur.fpos, cur.ebp);
+		eval.setContext(cur.fidx, cur.fpos, cur.ebp);
+		return eval.ref(expr);
 	}
 
 	public function getWatches() {
@@ -594,10 +682,15 @@ class Debugger {
 	public function resume() {
 		if( stoppedThread == null )
 			throw "No thread stopped";
-		if( !api.resume(stoppedThread) )
+		if( !api.resume(stoppedThread) && !processExit )
 			throw "Could not resume "+stoppedThread;
 		stoppedThread = null;
 		watchBreak = null;
+	}
+
+	public function end() {
+		if( stoppedThread != null ) resume();
+		api.stop();
 	}
 
 	function readMem( addr : Pointer, size : Int ) {
@@ -628,10 +721,10 @@ class Debugger {
 	public function addBreakpoint( file : String, line : Int ) {
 		var breaks = module.getBreaks(file, line);
 		if( breaks == null )
-			return false;
+			return -1;
 		// check already defined
 		var set = false;
-		for( b in breaks.copy() ) {
+		for( b in breaks.breaks ) {
 			var found = false;
 			for( a in breakPoints ) {
 				if( a.fid == b.ifun && a.pos == b.pos ) {
@@ -647,7 +740,7 @@ class Debugger {
 			breakPoints.push({ fid : b.ifun, pos : b.pos, oldByte : old, codePos : codePos });
 			set = true;
 		}
-		return set;
+		return breaks.line;
 	}
 
 	public function clearBreakpoints( file : String ) {
@@ -674,7 +767,7 @@ class Debugger {
 		if( breaks == null )
 			return false;
 		var rem = false;
-		for( b in breaks )
+		for( b in breaks.breaks )
 			for( a in breakPoints )
 				if( a.fid == b.ifun && a.pos == b.pos ) {
 					rem = true;
@@ -683,5 +776,19 @@ class Debugger {
 				}
 		return rem;
 	}
+
+	function set_breakOnThrow(b) {
+		var count = eval.readI32(jit.threads);
+		var tinfos = eval.readPointer(jit.threads.offset(8));
+		var flagsPos = jit.align.ptr * 6 + 8;
+		for( i in 0...count ) {
+			var tinf = eval.readPointer(tinfos.offset(jit.align.ptr * i));
+			var flags = eval.readI32(tinf.offset(flagsPos));
+			if( b ) flags |= 2 else flags &= ~2;
+			eval.writeI32(tinf.offset(flagsPos), flags);
+		}
+		return breakOnThrow = b;
+	}
+
 
 }

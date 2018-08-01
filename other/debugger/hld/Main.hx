@@ -94,7 +94,23 @@ class Main {
 		dbg = new hld.Debugger();
 		dbg.loadModule(sys.io.File.getBytes(file));
 
-		if( !dbg.connect("127.0.0.1", debugPort) || !dbg.init(new #if js hld.NodeDebugApi #else hld.HLDebugApi #end(pid, dbg.is64)) ) {
+		function getAPI() : hld.Api {
+			#if hl
+			return new hld.HLDebugApi(pid, dbg.is64);
+			#elseif nodejs
+			switch( Sys.systemName() ) {
+			case "Windows":
+				return new hld.NodeDebugApi(pid, dbg.is64);
+			default:
+				return new hld.NodeDebugApiLinux(pid,dbg.is64);
+			}
+			#else
+			throw "This platform does not have a debug API";
+			return null;
+			#end
+		}
+
+		if( !dbg.connect("127.0.0.1", debugPort) || !dbg.init(getAPI()) ) {
 			dumpProcessOut();
 			error("Failed to access process #" + pid + " on port " + debugPort + " for debugging");
 			return;
@@ -213,9 +229,10 @@ class Main {
 			var fileLine = args.shift().split(":");
 			var line = Std.parseInt(fileLine.pop());
 			var file = fileLine.join(":");
-			if( dbg.addBreakpoint(file, line) ) {
+			line = dbg.addBreakpoint(file, line);
+			if( line >= 0 ) {
 				breaks.push({file:file, line:line});
-				Sys.println("Breakpoint set");
+				Sys.println("Breakpoint set line "+line);
 			} else
 				Sys.println("No breakpoint set");
 		case "p", "print":
@@ -328,7 +345,42 @@ class Main {
 				}
 				dbg.setCurrentThread(cur);
 				dbg.currentStackFrame = stack;
+			case "statics":
+				var cl = dbg.getCurrentClass();
+				if( cl == null )
+					Sys.println("Class not found");
+				else {
+					Sys.println("Class "+cl);
+					var fields = dbg.getClassStatics(cl);
+					for( f in fields )
+						printVar(cl+"."+f);
+				}
+			default:
+				Sys.println("Unknown info request");
 			}
+		case "catch":
+			var arg = args.shift();
+			switch( arg ) {
+			case "throw":
+				dbg.breakOnThrow = true;
+			case "uncaught":
+				dbg.breakOnThrow = false;
+			default:
+				Sys.println("Invalid catch mode");
+			}
+		case "set":
+			var all = args.join(" ").split("=");
+			var expr = all.shift();
+			var value = all.join("=");
+			if( expr == "" || value == null || value == "" ) {
+				Sys.println("Syntax: set <expr>=<value>");
+				return true;
+			}
+			var value = dbg.setValue(expr,value);
+			if( value == null )
+				Sys.println("Failed to set expression");
+			else
+				Sys.println(dbg.eval.valueStr(value) + " : " + value.t.toString());
 		case "cd":
 			try Sys.setCwd(args.shift()) catch( e : Dynamic ) Sys.println(""+e);
 		default:

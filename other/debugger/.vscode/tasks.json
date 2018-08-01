@@ -4,15 +4,9 @@
 	"version": "2.0.0",
 	"tasks": [
 		{
-			"type": "hxml",
+			"type": "haxe",
+			"args": "active configuration",
 			"label": "Build",
-			"file": "debugger.hxml",
-			"problemMatcher": [
-				"$haxe"
-			],
-			"presentation": {
-				"reveal": "never"
-			},
 			"group": {
 				"kind": "build",
 				"isDefault": true

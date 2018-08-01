@@ -135,17 +135,26 @@ HL_PRIM void hl_rethrow( vdynamic *v ) {
 	hl_throw(v);
 }
 
-HL_PRIM void hl_error_msg( const uchar *fmt, ... ) {
-	uchar buf[256];
+HL_PRIM vdynamic *hl_alloc_strbytes( const uchar *fmt, ... ) {
+	uchar _buf[256];
 	vdynamic *d;
 	int len;
+	uchar *buf = _buf;
+	int bsize = sizeof(_buf) / sizeof(uchar);
 	va_list args;
-	va_start(args, fmt);
-	len = uvsprintf(buf,fmt,args);
-	va_end(args);
+	while( true ) {
+		va_start(args, fmt);
+		len = uvszprintf(buf,bsize,fmt,args);
+		va_end(args);
+		if( (len + 2) << 1 < bsize ) break;
+		if( buf != _buf ) free(buf);
+		bsize <<= 1;
+		buf = (uchar*)malloc(bsize * sizeof(uchar));
+	}
 	d = hl_alloc_dynamic(&hlt_bytes);
 	d->v.ptr = hl_copy_bytes((vbyte*)buf,(len + 1) << 1);
-	hl_throw(d);
+	if( buf != _buf ) free(buf);
+	return d;
 }
 
 HL_PRIM void hl_fatal_fmt( const char *file, int line, const char *fmt, ...) {
@@ -157,9 +166,15 @@ HL_PRIM void hl_fatal_fmt( const char *file, int line, const char *fmt, ...) {
 	hl_fatal_error(buf,file,line);
 }
 
-HL_PRIM void hl_breakpoint() {
+#ifdef HL_VCC
+#	pragma optimize( "", off )
+#endif
+HL_PRIM HL_NO_OPT void hl_breakpoint() {
 	hl_debug_break();
 }
+#ifdef HL_VCC
+#	pragma optimize( "", on )
+#endif
 
 #ifdef HL_LINUX__
 #include <signal.h>
@@ -185,10 +200,16 @@ HL_PRIM bool hl_detect_debugger() {
 #	endif
 }
 
-HL_PRIM void hl_assert() {
+#ifdef HL_VCC
+#	pragma optimize( "", off )
+#endif
+HL_PRIM HL_NO_OPT void hl_assert() {
 	hl_debug_break();
-	hl_error("Assert");
+	hl_error("assert");
 }
+#ifdef HL_VCC
+#	pragma optimize( "", on )
+#endif
 
 #define _SYMBOL _ABSTRACT(hl_symbol)
 

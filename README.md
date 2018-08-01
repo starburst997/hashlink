@@ -3,7 +3,7 @@
 [![TravisCI Build Status](https://travis-ci.org/HaxeFoundation/hashlink.svg?branch=master)](https://travis-ci.org/HaxeFoundation/hashlink)
 [![AppVeyor Build Status](https://ci.appveyor.com/api/projects/status/github/HaxeFoundation/hashlink?branch=master&svg=true)](https://ci.appveyor.com/project/HaxeFoundation/hashlink)
 
-HashLink is a virtual machine for Haxe http://hashlink.haxe.org
+HashLink is a virtual machine for Haxe https://hashlink.haxe.org
 
 
 ## Building on Linux/OSX
@@ -16,13 +16,23 @@ sdl: libsdl2-dev
 ssl: libmbedtls-dev
 uv: libuv1-dev
 
-To install all dependencies on Ubuntu for example:
+To install all dependencies on the latest Ubuntu, for example:
 
 `sudo apt-get install libpng16-dev libturbojpeg-dev libvorbis-dev libopenal-dev libsdl2-dev libmbedtls-dev libuv1-dev`
 
-And on OSX:
+For 16.04, see [this note](https://github.com/HaxeFoundation/hashlink/issues/147).
+
+**And on OSX:**
 
 `brew install libpng jpeg-turbo libvorbis sdl2 mbedtls openal-soft libuv`
+
+Once dependencies are installed you can simply call:
+
+`make`
+
+To install hashlink binaries on your system you can then call:
+
+`make install`
 
 ## Building on Windows
 

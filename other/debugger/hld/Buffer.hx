@@ -19,6 +19,15 @@ abstract Buffer(hl.Bytes) {
 		return Pointer.make(this.getI32(pos), 0);
 	}
 
+	public function setPointer( pos : Int, v : Pointer, align : Align ) {
+		if( align.is64 ) {
+			var a = v.i64;
+			this.setI32(pos, a.low);
+			this.setI32(pos + 4, a.high);
+		} else
+			this.setI32(pos, v.toInt());
+	}
+
 }
 
 #else
@@ -33,6 +42,15 @@ abstract Buffer(js.node.Buffer) {
 		if( align.is64 )
 			return Pointer.make(getI32(pos), getI32(pos + 4));
 		return Pointer.make(getI32(pos), 0);
+	}
+
+	public function setPointer( pos : Int, v : Pointer, align : Align ) {
+		if( align.is64 ) {
+			var a = v.i64;
+			setI32(pos, a.low);
+			setI32(pos + 4, a.high);
+		} else
+			setI32(pos, v.toInt());
 	}
 
 	public inline function getI32(pos) {
@@ -57,6 +75,14 @@ abstract Buffer(js.node.Buffer) {
 
 	public inline function setI32(pos,value) {
 		this.writeInt32LE(value, pos);
+	}
+
+	public inline function setUI16(pos,value) {
+		this.writeUInt16LE(value, pos);
+	}
+
+	public inline function setUI8(pos,value) {
+		this.writeUInt8(value, pos);
 	}
 
 	public function readStringUCS2(pos, length) {

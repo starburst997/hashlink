@@ -1446,18 +1446,14 @@ static int prepare_call_args( jit_ctx *ctx, int count, int *args, vreg *vregs, i
 	return paddedSize;
 }
 
-// prevent remove of push ebp which would prevent our stack from being correctly reported
 #ifdef HL_VCC
 #	pragma optimize( "", off )
 #endif
-#ifdef HL_GCC
-__attribute__((optimize("-O0")))
-#endif
-
-static void hl_null_access() {
-	hl_error_msg(USTR("Null access"));
+HL_NO_OPT static void hl_null_access() {
+	vdynamic *d = hl_alloc_dynamic(&hlt_bytes);
+	d->v.ptr = USTR("Null access");
+	hl_throw(d);
 }
-
 #ifdef HL_VCC
 #	pragma optimize( "", on )
 #endif
@@ -1671,14 +1667,17 @@ static preg *op_binop( jit_ctx *ctx, vreg *dst, vreg *a, vreg *b, hl_opcode *op 
 		case OUMod:
 			{
 				preg *out = op->op == OSMod || op->op == OUMod ? REG_AT(Edx) : PEAX;
-				preg *r = alloc_cpu(ctx,b,true);
+				preg *r;
 				int jz, jend;
+				if( pa->kind == RCPU && pa->id == Eax ) RLOCK(pa);
+				r = alloc_cpu(ctx,b,true);
 				// integer div 0 => 0
 				op32(ctx,TEST,r,r);
 				XJump_small(JNotZero,jz);
 				op32(ctx,XOR,out,out);
 				XJump_small(JAlways,jend);
 				patch_jump(ctx,jz);
+				pa = fetch(a);
 				if( pa->kind != RCPU || pa->id != Eax ) {
 					scratch(PEAX);
 					scratch(pa);
@@ -3885,6 +3884,17 @@ int hl_jit_function( jit_ctx *ctx, hl_module *m, hl_function *f ) {
 				op64(ctx, MOV, r, pmem(&p,addr->id,offset));
 				op64(ctx, MOV, r, pmem(&p,r->id,(int)(int_val)&tmp->prev));
 				op64(ctx, MOV, pmem(&p,addr->id, offset), r);
+#				ifdef HL_WIN
+				// erase eip (prevent false positive)
+				{
+					_JUMP_BUFFER *b = NULL;
+#					ifdef HL_64
+					op64(ctx,MOV,pmem(&p,Esp,(int)(int_val)&(b->Rip)),PEAX);
+#					else
+					op64(ctx,MOV,pmem(&p,Esp,(int)&(b->Eip)),PEAX);
+#					endif
+				}
+#				endif
 				op64(ctx,ADD,PESP,pconst(&p,trap_size));
 			}
 			break;
