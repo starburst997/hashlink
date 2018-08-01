@@ -861,7 +861,7 @@ HL_PRIM void HL_NAME(al_delete_effects)(int n, vbyte *effects) {
 }
 
 HL_PRIM bool HL_NAME(al_is_effect)(unsigned effect) {
-	return alIsEffect(effect) == AL_TRUE;
+    return alIsEffect(effect) == AL_TRUE;
 }
 
 HL_PRIM void HL_NAME(al_effecti)(unsigned effect, int param, int iValue) {
@@ -896,9 +896,32 @@ HL_PRIM float HL_NAME(al_get_effectf)(unsigned effect, int param) {
 	return value;
 }
 
-HL_PRIM void HL_NAME(al_get_effectfv)(unsigned effect, int param, vbyte *pflValues) {
-	alGetEffectfv(effect, param, (ALfloat*)pflValues);
+HL_PRIM void HL_NAME(al_get_effectfv)(unsigned effect, int param, vbyte *pflValues) {}
+
+#else
+
+// Stub because I'm lazy and I don't know what I'm doing
+HL_PRIM void HL_NAME(al_gen_effects)(int n, vbyte *effects) {}
+HL_PRIM void HL_NAME(al_delete_effects)(int n, vbyte *effects) {}
+HL_PRIM bool HL_NAME(al_is_effect)(unsigned effect) {
+    return AL_FALSE;
 }
+HL_PRIM void HL_NAME(al_effecti)(unsigned effect, int param, int iValue) {}
+HL_PRIM void HL_NAME(al_effectiv)(unsigned effect, int param, vbyte *piValues) {}
+HL_PRIM void HL_NAME(al_effectf)(unsigned effect, int param, float flValue) {}
+HL_PRIM void HL_NAME(al_effectfv)(unsigned effect, int param, vbyte *pflValues) {}
+HL_PRIM int HL_NAME(al_get_effecti)(unsigned effect, int param) {
+    int value;
+    return value;
+}
+HL_PRIM void HL_NAME(al_get_effectiv)(unsigned effect, int param, vbyte *piValues) {}
+HL_PRIM float HL_NAME(al_get_effectf)(unsigned effect, int param) {
+    float value;
+    return value;
+}
+HL_PRIM void HL_NAME(al_get_effectfv)(unsigned effect, int param, vbyte *pflValues) {}
+
+#endif
 
 DEFINE_PRIM(_VOID, al_gen_effects,    _I32 _BYTES);
 DEFINE_PRIM(_VOID, al_delete_effects, _I32 _BYTES);
@@ -916,6 +939,8 @@ DEFINE_PRIM(_VOID, al_get_effectfv,   _I32 _I32 _BYTES);
 
 // ----------------------------------------------------------------------------
 
+#ifdef ALC_EXT_EFX
+
 HL_PRIM void HL_NAME(al_gen_filters)(int n, vbyte *filters) {
 	alGenFilters(n, (ALuint*)filters);
 }
@@ -925,7 +950,7 @@ HL_PRIM void HL_NAME(al_delete_filters)(int n, vbyte *filters) {
 }
 
 HL_PRIM bool HL_NAME(al_is_filter)(unsigned filter) {
-	return alIsFilter(filter) == AL_TRUE;
+    return alIsFilter(filter) == AL_TRUE;
 }
 
 HL_PRIM void HL_NAME(al_filteri)(unsigned filter, int param, int iValue) {
@@ -964,6 +989,31 @@ HL_PRIM void HL_NAME(al_get_filterfv)(unsigned filter, int param, vbyte *pflValu
 	alGetFilterfv(filter, param, (ALfloat*)pflValues);
 }
 
+#else
+
+// Stub because I'm lazy and I don't know what I'm doing
+HL_PRIM void HL_NAME(al_gen_filters)(int n, vbyte *filters) {}
+HL_PRIM void HL_NAME(al_delete_filters)(int n, vbyte *filters) {}
+HL_PRIM bool HL_NAME(al_is_filter)(unsigned filter) {
+    return AL_FALSE;
+}
+HL_PRIM void HL_NAME(al_filteri)(unsigned filter, int param, int iValue) {}
+HL_PRIM void HL_NAME(al_filteriv)(unsigned filter, int param, vbyte *piValues) {}
+HL_PRIM void HL_NAME(al_filterf)(unsigned filter, int param, float flValue) {}
+HL_PRIM void HL_NAME(al_filterfv)(unsigned filter, int param, vbyte *pflValues) {}
+HL_PRIM int HL_NAME(al_get_filteri)(unsigned filter, int param) {
+    int value;
+    return value;
+}
+HL_PRIM void HL_NAME(al_get_filteriv)(unsigned filter, int param, vbyte *piValues) {}
+HL_PRIM float HL_NAME(al_get_filterf)(unsigned filter, int param) {
+    float value;
+    return value;
+}
+HL_PRIM void HL_NAME(al_get_filterfv)(unsigned filter, int param, vbyte *pflValues) {}
+
+#endif
+
 DEFINE_PRIM(_VOID, al_gen_filters,    _I32 _BYTES);
 DEFINE_PRIM(_VOID, al_delete_filters, _I32 _BYTES);
 DEFINE_PRIM(_BOOL, al_is_filter,      _I32);
@@ -980,6 +1030,8 @@ DEFINE_PRIM(_VOID, al_get_filterfv,   _I32 _I32 _BYTES);
 
 // ----------------------------------------------------------------------------
 
+#ifdef ALC_EXT_EFX
+
 HL_PRIM void HL_NAME(al_gen_auxiliary_effect_slots)(int n, vbyte *effectslots) {
 	alGenAuxiliaryEffectSlots(n, (ALuint*)effectslots);
 }
@@ -989,7 +1041,7 @@ HL_PRIM void HL_NAME(al_delete_auxiliary_effect_slots)(int n, vbyte *effectslots
 }
 
 HL_PRIM bool HL_NAME(al_is_auxiliary_effect_slot)(unsigned effectslot) {
-	return alIsAuxiliaryEffectSlot(effectslot) == AL_TRUE;
+    return alIsAuxiliaryEffectSlot(effectslot) == AL_TRUE;
 }
 
 HL_PRIM void HL_NAME(al_auxiliary_effect_sloti)(unsigned effectslot, int param, int iValue) {
@@ -1028,6 +1080,31 @@ HL_PRIM void HL_NAME(al_get_auxiliary_effect_slotfv)(unsigned effectslot, int pa
 	alGetAuxiliaryEffectSlotfv(effectslot, param, (ALfloat*)pflValues);
 }
 
+#else
+
+// Stub because I'm lazy and I don't know what I'm doing
+HL_PRIM void HL_NAME(al_gen_auxiliary_effect_slots)(int n, vbyte *effectslots) {}
+HL_PRIM void HL_NAME(al_delete_auxiliary_effect_slots)(int n, vbyte *effectslots) {}
+HL_PRIM bool HL_NAME(al_is_auxiliary_effect_slot)(unsigned effectslot) {
+    return AL_FALSE;
+}
+HL_PRIM void HL_NAME(al_auxiliary_effect_sloti)(unsigned effectslot, int param, int iValue) {}
+HL_PRIM void HL_NAME(al_auxiliary_effect_slotiv)(unsigned effectslot, int param, vbyte *piValues) {}
+HL_PRIM void HL_NAME(al_auxiliary_effect_slotf)(unsigned effectslot, int param, float flValue) {}
+HL_PRIM void HL_NAME(al_auxiliary_effect_slotfv)(unsigned effectslot, int param, vbyte *pflValues) {}
+HL_PRIM int HL_NAME(al_get_auxiliary_effect_sloti)(unsigned effectslot, int param) {
+    int value;
+    return value;
+}
+HL_PRIM void HL_NAME(al_get_auxiliary_effect_slotiv)(unsigned effectslot, int param, vbyte *piValues) {}
+HL_PRIM float HL_NAME(al_get_auxiliary_effect_slotf)(unsigned effectslot, int param) {
+    float value;
+    return value;
+}
+HL_PRIM void HL_NAME(al_get_auxiliary_effect_slotfv)(unsigned effectslot, int param, vbyte *pflValues) {}
+
+#endif
+
 DEFINE_PRIM(_VOID, al_gen_auxiliary_effect_slots,    _I32 _BYTES);
 DEFINE_PRIM(_VOID, al_delete_auxiliary_effect_slots, _I32 _BYTES);
 DEFINE_PRIM(_BOOL, al_is_auxiliary_effect_slot,      _I32);
@@ -1041,4 +1118,3 @@ DEFINE_PRIM(_I32,  al_get_auxiliary_effect_sloti,    _I32 _I32);
 DEFINE_PRIM(_VOID, al_get_auxiliary_effect_slotiv,   _I32 _I32 _BYTES);
 DEFINE_PRIM(_F32,  al_get_auxiliary_effect_slotf,    _I32 _I32);
 DEFINE_PRIM(_VOID, al_get_auxiliary_effect_slotfv,   _I32 _I32 _BYTES);
-#endif
