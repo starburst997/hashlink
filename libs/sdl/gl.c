@@ -2,8 +2,8 @@
 #include <hl.h>
 
 #if defined(HL_IOS) || defined (HL_TVOS)
-#	include <SDL2/SDL.h>
-#	include <SDL2/SDL_syswm.h>
+#	include "SDL.h"
+#	include "SDL_syswm.h"
 #	include <OpenGLES/ES3/gl.h>
 #	define glBindFragDataLocation(...)
 #	define glGetQueryObjectiv glGetQueryObjectuiv
@@ -108,7 +108,9 @@ HL_PRIM vbyte *HL_NAME(gl_get_string)(int name) {
 // state changes
 
 HL_PRIM void HL_NAME(gl_polygon_mode)(int face, int mode) {
-	glPolygonMode(face, mode);
+#if !(defined (HL_IOS) || defined(HL_TVOS))
+    glPolygonMode(face, mode);
+#endif
 }
 
 HL_PRIM void HL_NAME(gl_enable)( int feature ) {
@@ -314,7 +316,8 @@ HL_PRIM void HL_NAME(gl_tex_image3d)( int target, int level, int internalFormat,
 }
 
 HL_PRIM void HL_NAME(gl_tex_image2d_multisample)( int target, int samples, int internalFormat, int width, int height, bool fixedsamplelocations) {
-#	if !defined(HL_MESA)
+	GLOG("%d,%d,%d,%d,%d,%d",target,samples,internalFormat,width,height,fixedsamplelocations);
+#	if !defined(HL_MESA) && !(defined (HL_IOS) || defined(HL_TVOS))
 	glTexImage2DMultisample(target, samples, internalFormat, width, height, fixedsamplelocations);
 #	endif
 }
@@ -354,7 +357,8 @@ HL_PRIM void HL_NAME(gl_bind_framebuffer)( int target, vdynamic *f ) {
 }
 
 HL_PRIM void HL_NAME(gl_framebuffer_texture)( int target, int attach, vdynamic *t, int level ) {
-#if !defined (HL_MESA)
+	GLOG("%d,%d,%d,%d,%d",target,attach,ZIDX(t),level);
+#if !defined (HL_MESA) && !(defined (HL_IOS) || defined(HL_TVOS))
 	glFramebufferTexture(target, attach, ZIDX(t), level);
 #endif
 }
