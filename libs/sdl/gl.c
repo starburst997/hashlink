@@ -469,6 +469,10 @@ HL_PRIM void HL_NAME(gl_vertex_attrib_ipointer)( int index, int size, int type, 
 	glVertexAttribIPointer(index, size, type, stride, (void*)(int_val)position);
 }
 
+HL_PRIM void HL_NAME(gl_vertex_attrib_divisor)( int index, int divisor ) {
+	glVertexAttribDivisor(index, divisor);
+}
+
 HL_PRIM void HL_NAME(gl_delete_buffer)( vdynamic *b ) {
 	unsigned int bb = (unsigned)b->v.i;
 	glDeleteBuffers(1, &bb);
@@ -517,6 +521,26 @@ HL_PRIM void HL_NAME(gl_draw_elements_instanced)( int mode, int count, int type,
 
 HL_PRIM void HL_NAME(gl_draw_arrays_instanced)( int mode, int first, int count, int primcount ) {
 	glDrawArraysInstanced(mode,first,count,primcount);
+}
+
+HL_PRIM void HL_NAME(gl_multi_draw_elements_indirect)( int mode, int type, vbyte *data, int count, int stride ) {
+#	ifdef GL_VERSION_4_3
+	glMultiDrawElementsIndirect(mode, type, data, count, stride);
+#	endif
+}
+
+HL_PRIM int HL_NAME(gl_get_config_parameter)( int feature ) {
+	switch( feature ) {
+	case 0:
+#		ifdef GL_VERSION_4_3
+		return 1;
+#		else
+		return 0;
+#		endif
+	default:
+		break;
+	}
+	return -1;
 }
 
 // queries
@@ -678,10 +702,11 @@ DEFINE_PRIM(_VOID,gl_draw_elements,_I32 _I32 _I32 _I32);
 DEFINE_PRIM(_VOID,gl_draw_elements_instanced,_I32 _I32 _I32 _I32 _I32);
 DEFINE_PRIM(_VOID,gl_draw_arrays,_I32 _I32 _I32);
 DEFINE_PRIM(_VOID,gl_draw_arrays_instanced,_I32 _I32 _I32 _I32);
+DEFINE_PRIM(_VOID,gl_multi_draw_elements_indirect, _I32 _I32 _BYTES _I32 _I32);
 DEFINE_PRIM(_NULL(_I32),gl_create_vertex_array,_NO_ARG);
 DEFINE_PRIM(_VOID,gl_bind_vertex_array,_NULL(_I32));
 DEFINE_PRIM(_VOID,gl_delete_vertex_array,_NULL(_I32));
-
+DEFINE_PRIM(_VOID,gl_vertex_attrib_divisor,_I32 _I32);
 
 DEFINE_PRIM(_NULL(_I32), gl_create_query, _NO_ARG);
 DEFINE_PRIM(_VOID, gl_delete_query, _NULL(_I32));
@@ -693,3 +718,5 @@ DEFINE_PRIM(_F64, gl_query_result, _NULL(_I32));
 
 DEFINE_PRIM(_I32, gl_get_uniform_block_index, _NULL(_I32) _STRING);
 DEFINE_PRIM(_VOID, gl_uniform_block_binding, _NULL(_I32) _I32 _I32);
+
+DEFINE_PRIM(_I32, gl_get_config_parameter, _I32);
