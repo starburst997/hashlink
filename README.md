@@ -12,15 +12,15 @@ HashLink is a virtual machine for Haxe https://hashlink.haxe.org
 
 HashLink is distributed with some graphics libraries allowing to develop various applications, you can manually disable the libraries you want to compile in Makefile. Here's the dependencies that you install in order to compile all the libraries:
 
-fmt: libpng-dev libturbojpeg-dev libvorbis-dev
-openal: libopenal-dev
-sdl: libsdl2-dev
-ssl: libmbedtls-dev
-uv: libuv1-dev
+  * fmt: libpng-dev libturbojpeg-dev libvorbis-dev
+  * openal: libopenal-dev
+  * sdl: libsdl2-dev
+  * ssl: libmbedtls-dev
+  * uv: libuv1-dev
 
 To install all dependencies on the latest Ubuntu, for example:
 
-`sudo apt-get install libpng16-dev libturbojpeg-dev libvorbis-dev libopenal-dev libsdl2-dev libmbedtls-dev libuv1-dev`
+`sudo apt-get install libpng-dev libturbojpeg-dev libvorbis-dev libopenal-dev libsdl2-dev libmbedtls-dev libuv1-dev`
 
 For 16.04, see [this note](https://github.com/HaxeFoundation/hashlink/issues/147).
 
